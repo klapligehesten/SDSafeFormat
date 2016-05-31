@@ -4,4 +4,6 @@ Simple comand line format/resize of SD Cards. Mainly used for formating SD Cards
 There is no need to install anything on your pc. 
 The program waits for you to insert the SD card and when inserted, prompts you if you want to format it.
 
+The program was written in VS2015.
+
 Enjoy :-)
