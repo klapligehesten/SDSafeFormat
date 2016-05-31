@@ -207,7 +207,7 @@ int main(int argc, char *argv[]) {
 	// 6. Format the volume.
 	// RootDirectory, media_id, Format_type eg. FAT, Label, QuickFormat, ClusterSize, FormatExCallback
 	MultiByteToWideChar(CP_ACP, 0, current_drive->drive, strlen(current_drive->drive), fdrive, sizeof(fdrive));
-	FormatEx(fdrive, drive_geometry->MediaType, L"FAT32", L"SDSafeFmt", FALSE, 4096, formatEx_callback);
+	FormatEx(fdrive, drive_geometry->MediaType, L"FAT32", L"SDSafeFmt", TRUE, 4096, formatEx_callback);
 
 	printf("SDSafeFormat complete\n");
 	printf("Hit Enter to close\n");
