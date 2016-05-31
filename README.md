@@ -8,6 +8,6 @@ The program was written in VS2015 and tested on Windows 10
 
 I would appreciate comments and some one testing it on other versions of Windows :-)
 
-SDSaveFormat with a 'q' option reduses the output.
+SDSaveFormat with a 'q' option reduces the output.
 
 Enjoy :-)
