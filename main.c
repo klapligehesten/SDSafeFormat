@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include "static_partion_types.h"
 #include "static_media_type.h"
+// #include "utils.h"
 
 // remove warnings
 extern int kbhit();
@@ -31,13 +32,7 @@ typedef struct _disk {
 	int  drive_type;
 } DISK, *P_DISK;
 
-// some quick fix definitions :-)
-typedef struct _MBR_DRIVE_LAYOUT_INFORMATION {
-	DWORD PartitionCount;
-	DWORD Signature;
-	PARTITION_INFORMATION PartitionEntry[4];
-} MBR_DRIVE_LAYOUT_INFORMATION, *PMBR_DRIVE_LAYOUT_INFORMATION;
-
+// TODO: should be parameters
 #define HIDDEN_SEC 8192
 #define PART_TYPE 0x0c
 #define SIGN 0x0a0b0c0d;
@@ -79,6 +74,14 @@ typedef VOID(__stdcall *PFORMATEX)(PWCHAR DriveRoot,
 	DWORD ClusterSize,
 	PFMIFSCALLBACK Callback);
 PFORMATEX   FormatEx;
+// Format command in FMIFS
+typedef VOID(__stdcall *PFORMAT)(PWCHAR DriveRoot,
+	DWORD MediaFlag,
+	PWCHAR Format,
+	PWCHAR Label,
+	BOOL QuickFormat,
+	PFMIFSCALLBACK Callback);
+PFORMAT   Format;
 // ------------------------------------------
 
 // Prototypes
@@ -156,7 +159,8 @@ int main(int argc, char *argv[]) {
 	if (current_drive->drive_type != 2)
 		return disp_last_error(-1, "Drive is not removeable");
 
-	// TODO: Check if drive is writeprotected
+	// TODO: Check if drive is writeprotected ERROR_IO_DEVICE 1117
+
 
 	// OK. Now display all the drive info 
 	print_drive_info(current_drive);
@@ -207,7 +211,9 @@ int main(int argc, char *argv[]) {
 	// 6. Format the volume.
 	// RootDirectory, media_id, Format_type eg. FAT, Label, QuickFormat, ClusterSize, FormatExCallback
 	MultiByteToWideChar(CP_ACP, 0, current_drive->drive, strlen(current_drive->drive), fdrive, sizeof(fdrive));
-	FormatEx(fdrive, drive_geometry->MediaType, L"FAT32", L"SDSafeFmt", TRUE, 4096, formatEx_callback);
+	// L"exFAT"
+	//FormatEx(fdrive, drive_geometry->MediaType, L"FAT32", L"SDSafeFmt", TRUE, 4096, formatEx_callback);
+	Format(fdrive, drive_geometry->MediaType, L"FAT32", L"SDSafeFmt", TRUE, formatEx_callback);
 
 	printf("SDSafeFormat complete\n");
 	printf("Hit Enter to close\n");
@@ -256,6 +262,9 @@ BOOLEAN LoadFMIFSEntryPoints() {
 	FormatEx = (void *)GetProcAddress(GetModuleHandleA("fmifs.dll"), "FormatEx");
 	if (!FormatEx)
 		return -1;
+	Format = (void *)GetProcAddress(GetModuleHandleA("fmifs.dll"), "Format");
+	if (!Format)
+		return -1;
 
 	return 0;
 }
@@ -293,14 +302,13 @@ int create_disk(HANDLE hdl) {
 
 // --------------------------------------------------------
 int set_drive_layout(HANDLE hdl, PDISK_GEOMETRY drive_geometry) {
-	int i;
 	unsigned long len;
-	MBR_DRIVE_LAYOUT_INFORMATION drive_layout_info;
+	DRIVE_LAYOUT_INFORMATION drive_layout_info;
 	ULONGLONG disk_size;
 
 	disk_size = drive_geometry->Cylinders.QuadPart * (ULONG)drive_geometry->TracksPerCylinder * (ULONG)drive_geometry->SectorsPerTrack * (ULONG)drive_geometry->BytesPerSector;
 
-	drive_layout_info.PartitionCount = 4;
+	drive_layout_info.PartitionCount = 1;
 	drive_layout_info.Signature = SIGN;
 	drive_layout_info.PartitionEntry[0].HiddenSectors = HIDDEN_SEC;
 	drive_layout_info.PartitionEntry[0].BootIndicator = 0;
@@ -310,18 +318,8 @@ int set_drive_layout(HANDLE hdl, PDISK_GEOMETRY drive_geometry) {
 	drive_layout_info.PartitionEntry[0].StartingOffset.QuadPart = HIDDEN_SEC * drive_geometry->BytesPerSector;
 	drive_layout_info.PartitionEntry[0].RewritePartition = 1;
 	drive_layout_info.PartitionEntry[0].PartitionLength.QuadPart = (disk_size) - (HIDDEN_SEC * drive_geometry->BytesPerSector);
-	for (i = 1; i < 4; i++) {
-		drive_layout_info.PartitionEntry[i].HiddenSectors = 0;
-		drive_layout_info.PartitionEntry[i].BootIndicator = 0;
-		drive_layout_info.PartitionEntry[i].PartitionNumber = i+1;
-		drive_layout_info.PartitionEntry[i].PartitionType = 0;
-		drive_layout_info.PartitionEntry[i].RecognizedPartition = 0;
-		drive_layout_info.PartitionEntry[i].StartingOffset.QuadPart = 0;
-		drive_layout_info.PartitionEntry[i].RewritePartition = 0;
-		drive_layout_info.PartitionEntry[i].PartitionLength.QuadPart = 0;
-	}
 
-	return DeviceIoControl(hdl, IOCTL_DISK_SET_DRIVE_LAYOUT, &drive_layout_info, sizeof(MBR_DRIVE_LAYOUT_INFORMATION), NULL, 0, &len, NULL);
+	return DeviceIoControl(hdl, IOCTL_DISK_SET_DRIVE_LAYOUT, &drive_layout_info, sizeof(DRIVE_LAYOUT_INFORMATION), NULL, 0, &len, NULL);
 }
 
 // --------------------------------------------------------
